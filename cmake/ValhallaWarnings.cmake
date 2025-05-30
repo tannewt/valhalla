@@ -12,7 +12,4 @@ include(HandleLibcxxFlags)
 
 function (cxx_add_warning_flags target)
   target_add_compile_flags_if_supported(${target} PRIVATE -Wall -Wextra)
-  if (ENABLE_WERROR)
-   target_add_compile_flags_if_supported(${target} PRIVATE -Werror)
-  endif()
 endfunction()

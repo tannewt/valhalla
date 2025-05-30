@@ -1,4 +1,5 @@
 #include "baldr/attributes_controller.h"
+#include "baldr/nodeinfo.h"
 #include "meili/map_matcher.h"
 #include "meili/match_result.h"
 #include "midgard/util.h"
@@ -8,6 +9,7 @@
 #include "thor/worker.h"
 
 #include <algorithm>
+#include <iostream>
 #include <limits>
 #include <unordered_map>
 #include <utility>
@@ -164,6 +166,17 @@ void thor_worker_t::route_match(Api& request) {
   }
 }
 
+vector<Turn::Type> kTurnTypePriority = {
+    Turn::Type::kStraight,
+    Turn::Type::kSlightRight,
+    Turn::Type::kSlightLeft,
+    Turn::Type::kRight,
+    Turn::Type::kLeft,
+    Turn::Type::kSharpRight,
+    Turn::Type::kSharpLeft,
+    Turn::Type::kReverse,
+};
+
 // Form the path from the map-matching results. This path gets sent to TripLegBuilder.
 // PathInfo is primarily a list of edge Ids but it also include elapsed time to the end
 // of each edge. We will need to use the existing costing method to form the elapsed time
@@ -191,6 +204,91 @@ thor_worker_t::map_match(Api& request) {
     if (result.segments.empty()) {
       throw std::exception{};
     }
+
+    // Extend result.segments to estimate what is upcoming
+    LOG_INFO("Extending segments");
+    auto& last_segment = result.segments.back();
+    auto tile = reader->GetGraphTile(last_segment.edgeid);
+    std::cout << "Tile: " << tile->id() << std::endl;
+    auto* last_edge = tile->directededge(last_segment.edgeid);
+    auto end_node = tile->node(last_edge->endnode());
+    // 20 normally
+    for (int i = 0; i < 10; ++i) {
+      LOG_INFO("End node: " + std::to_string(last_edge->endnode()));
+      LOG_INFO("Options: ");
+      int edge_idx = 0;
+      for (auto edge : tile->GetDirectedEdges(end_node)) {
+        std::cout << "Edge: " << edge.localedgeidx() << std::endl;
+        if (edge.localedgeidx() == last_edge->opp_local_idx()) {
+          std::cout << "  Opposite" << std::endl;
+        }
+        // std::cout << "  Use: " << edge.use() << std::endl;
+        // std::cout << "  Classification: " << edge.classification() << std::endl;
+        std::cout << "  Length: " << edge.length() << std::endl;
+        std::cout << "  Speed: " << edge.speed() << std::endl;
+        std::cout << "  End node: " << edge.endnode() << std::endl;
+        std::cout << "  Link: " << edge.link() << std::endl;
+        std::cout << "  Internal: " << edge.internal() << std::endl;
+        std::cout << "  Forward: " << edge.forwardaccess() << std::endl;
+        std::cout << "  Shortcut: " << edge.shortcut() << std::endl;
+        std::cout << "  Leaves tile: " << edge.leaves_tile() << std::endl;
+        std::cout << "  Superseded: " << edge.superseded() << std::endl;
+        std::cout << "  Turn type: " << Turn::GetTypeString(edge.turntype(last_edge->opp_local_idx())) << std::endl;
+        std::cout << "  Name consistency: " << edge.name_consistency(last_edge->localedgeidx()) << std::endl;
+        auto next_edge_graph_id = GraphId(tile->id().tileid(), tile->id().level(), end_node->edge_index() + edge_idx);
+
+        auto shortcut_id = tile->header()->graphid();
+        shortcut_id.set_id(&edge - tile->directededge(0));
+        auto edge_for_graph_id = tile->directededge(next_edge_graph_id);
+        std::cout << "  GraphId: " << next_edge_graph_id << std::endl;
+        std::cout << "  ShortcutId: " << shortcut_id << std::endl;
+        if (edge_for_graph_id->endnode() != edge.endnode()) {
+          LOG_ERROR("Incorrect graph id!");
+        }
+        edge_idx++;
+      }
+      LOG_INFO("Make a decision");
+      const NodeInfo* next_end_node = nullptr;
+      const DirectedEdge* next_last_edge = nullptr;
+      Turn::Type next_turn_type = kTurnTypePriority.back();
+      GraphId next_edge_graph_id;
+      edge_idx = 0;
+      for (auto edge : tile->GetDirectedEdges(end_node)) {
+        next_edge_graph_id = GraphId(tile->id().tileid(), tile->id().level(), end_node->edge_index() + edge_idx);
+        edge_idx++;
+        std::cout << "GraphId: " << next_edge_graph_id;
+        if (last_edge->opp_local_idx() == edge.localedgeidx()) {
+          std::cout << " (opposite)" << std::endl;
+          continue;
+        }
+        if (edge.shortcut() != 0) {
+          std::cout << " (shortcut)" << std::endl;
+          continue;
+        }
+        Turn::Type this_turn_type = edge.turntype(last_edge->opp_local_idx());
+        auto this_turn_type_priority = std::find(kTurnTypePriority.begin(), kTurnTypePriority.end(), this_turn_type);
+        auto next_turn_type_priority = std::find(kTurnTypePriority.begin(), kTurnTypePriority.end(), next_turn_type);
+        if (this_turn_type_priority > next_turn_type_priority) {
+          std::cout << " (skipping)" << std::endl;
+          continue;
+        }
+        std::cout << " (next)" << std::endl;
+        next_end_node = reader->GetEndNode(&edge, tile);
+        next_last_edge = tile->directededge(next_edge_graph_id);
+        next_turn_type = this_turn_type;
+        if (next_turn_type == Turn::Type::kStraight) {
+          break;
+        }
+      }
+      if (!next_end_node || !next_last_edge) {
+        break;
+      }
+      end_node = next_end_node;
+      last_edge = next_last_edge;
+      result.segments.emplace_back(next_edge_graph_id, 0, 1, last_segment.last_match_idx - 1, last_segment.last_match_idx, false, 0);
+    }
+    result.results[last_segment.last_match_idx].is_break_point = false;
+
 
     // Form the path edges based on the matched points and populate disconnected edges
     auto paths = MapMatcher::FormPath(matcher.get(), result.results, result.segments, mode_costing,
@@ -323,8 +421,11 @@ void thor_worker_t::build_trace(
   // of that, we use the segment to get edge and percent but we use matchresult for the snap location
   add_path_edge(origin_location, origin_segment->edgeid, origin_segment->source, origin_match.lnglat,
                 origin_match.distance_from);
-  add_path_edge(destination_location, dest_segment->edgeid, dest_segment->target, dest_match.lnglat,
-                dest_match.distance_from);
+
+  auto tile = reader->GetGraphTile(dest_segment->edgeid);
+  auto final_edge = tile->directededge(dest_segment->edgeid);
+  add_path_edge(destination_location, dest_segment->edgeid, dest_segment->target,
+                tile->get_node_ll(final_edge->endnode()), final_edge->length());
 
   // TODO: do we actually need to supply the via/through type locations?
 

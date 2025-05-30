@@ -601,6 +601,8 @@ iterable_t<const DirectedEdge> GraphTile::GetDirectedEdges(const NodeInfo* node)
         " GraphTile NodeInfo out of bounds: " + std::to_string(header_->graphid()));
   }
   const auto* edge = directededges_ + node->edge_index();
+  LOG_INFO("Edge index: " + std::to_string(node->edge_index()));
+  LOG_INFO("Edge count: " + std::to_string(node->edge_count()));
   return iterable_t<const DirectedEdge>{edge, node->edge_count()};
 }
 
