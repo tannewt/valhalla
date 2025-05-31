@@ -213,12 +213,13 @@ thor_worker_t::map_match(Api& request) {
     auto* last_edge = tile->directededge(last_segment.edgeid);
     auto end_node = tile->node(last_edge->endnode());
     // 20 normally
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 20; ++i) {
       LOG_INFO("End node: " + std::to_string(last_edge->endnode()));
+      LOG_INFO("Node named intersection: " + std::to_string(end_node->named_intersection()));
       LOG_INFO("Options: ");
       int edge_idx = 0;
       for (auto edge : tile->GetDirectedEdges(end_node)) {
-        std::cout << "Edge: " << edge.localedgeidx() << std::endl;
+        std::cout << "Edge: " << edge_idx << " (local: " << edge.localedgeidx() << ")" << std::endl;
         if (edge.localedgeidx() == last_edge->opp_local_idx()) {
           std::cout << "  Opposite" << std::endl;
         }
@@ -233,6 +234,7 @@ thor_worker_t::map_match(Api& request) {
         std::cout << "  Shortcut: " << edge.shortcut() << std::endl;
         std::cout << "  Leaves tile: " << edge.leaves_tile() << std::endl;
         std::cout << "  Superseded: " << edge.superseded() << std::endl;
+        std::cout << "  Sign: " << edge.sign() << std::endl;
         std::cout << "  Turn type: " << Turn::GetTypeString(edge.turntype(last_edge->opp_local_idx())) << std::endl;
         std::cout << "  Name consistency: " << edge.name_consistency(last_edge->localedgeidx()) << std::endl;
         auto next_edge_graph_id = GraphId(tile->id().tileid(), tile->id().level(), end_node->edge_index() + edge_idx);
@@ -242,7 +244,7 @@ thor_worker_t::map_match(Api& request) {
         auto edge_for_graph_id = tile->directededge(next_edge_graph_id);
         std::cout << "  GraphId: " << next_edge_graph_id << std::endl;
         std::cout << "  ShortcutId: " << shortcut_id << std::endl;
-        if (edge_for_graph_id->endnode() != edge.endnode()) {
+        if (edge_for_graph_id->endnode() != edge.endnode() || edge_for_graph_id->length() != edge.length()) {
           LOG_ERROR("Incorrect graph id!");
         }
         edge_idx++;

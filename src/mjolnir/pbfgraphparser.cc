@@ -2127,6 +2127,7 @@ struct graph_parser {
         // ref:left means the ref for the left exit and ref:right means the ref for the
         // right exit at a split
         ref_ = tag.second;
+        // LOG_INFO("Ref: " + ref_);
         ++osmdata_.node_ref_count;
       } else if (tag.first == "name" &&
                  (is_highway_junction || maybe_named_junction || is_toll_node) && hasTag) {

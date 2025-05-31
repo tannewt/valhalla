@@ -327,6 +327,15 @@ void serialize_edges(const AttributesController& controller,
               }
               writer.end_array();
             }
+            if (xedge.has_sign()) {
+              writer.start_object("sign");
+              writer.start_array("exit_number");
+              for (const auto& exit_number : xedge.sign().exit_numbers()) {
+                writer(exit_number.text());
+              }
+              writer.end_array();
+              writer.end_object();
+            }
             writer.end_object();
           }
           writer.end_array();
