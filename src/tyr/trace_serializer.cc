@@ -329,11 +329,34 @@ void serialize_edges(const AttributesController& controller,
             }
             if (xedge.has_sign()) {
               writer.start_object("sign");
-              writer.start_array("exit_number");
-              for (const auto& exit_number : xedge.sign().exit_numbers()) {
-                writer(exit_number.text());
+              if (xedge.sign().exit_numbers_size() > 0) {
+                writer.start_array("exit_number");
+                for (const auto& exit_number : xedge.sign().exit_numbers()) {
+                  writer(exit_number.text());
+                }
+                writer.end_array();
               }
-              writer.end_array();
+              if (xedge.sign().exit_onto_streets_size() > 0) {
+                writer.start_array("exit_onto_streets");
+                for (const auto& exit_onto_street : xedge.sign().exit_onto_streets()) {
+                  writer(exit_onto_street.text());
+                }
+                writer.end_array();
+              }
+              if (xedge.sign().exit_toward_locations_size() > 0) {
+                writer.start_array("exit_toward_locations");
+                for (const auto& exit_toward_location : xedge.sign().exit_toward_locations()) {
+                  writer(exit_toward_location.text());
+                }
+                writer.end_array();
+              }
+              if (xedge.sign().exit_names_size() > 0) {
+                writer.start_array("exit_names");
+                for (const auto& exit_name : xedge.sign().exit_names()) {
+                  writer(exit_name.text());
+                }
+                writer.end_array();
+              }
               writer.end_object();
             }
             writer.end_object();
