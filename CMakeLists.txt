@@ -320,7 +320,7 @@ endif()
 foreach(script valhalla_build_config valhalla_build_elevation
   valhalla_build_extract valhalla_build_timezones)
   configure_file(${VALHALLA_SOURCE_DIR}/scripts/${script} ${CMAKE_BINARY_DIR}/${script} COPYONLY)
-  
+
   install(
     FILES
       scripts/${script}
