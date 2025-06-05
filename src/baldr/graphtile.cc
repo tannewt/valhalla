@@ -106,7 +106,7 @@ graph_tile_ptr GraphTile::Create(const std::string& tile_dir,
   }
 
   if (tile_dir.empty()) {
-    LOG_ERROR("Failed to build GraphTile. Error: Tile dir is empty");
+    LOG_ERROR("Failed to build GraphTile. Error: Tile dir is empty. And this isn't built");
     return nullptr;
   }
 
