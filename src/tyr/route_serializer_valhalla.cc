@@ -267,6 +267,14 @@ void legs(valhalla::Api& api, int route_index, rapidjson::writer_wrapper_t& writ
     bool has_highway = false;
     bool has_ferry = false;
 
+    writer.start_array("edge_ids");
+    for (const auto& n : etp.node()) {
+      if (n.has_edge()) {
+        writer(n.edge().id());
+      }
+    }
+    writer.end_array();
+
     if (directions_leg.maneuver_size())
       writer.start_array("maneuvers");
 

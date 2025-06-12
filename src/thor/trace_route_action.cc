@@ -214,42 +214,43 @@ thor_worker_t::map_match(Api& request) {
     auto end_node = tile->node(last_edge->endnode());
     // 20 normally
     for (int i = 0; i < 20; ++i) {
-      LOG_INFO("End node: " + std::to_string(last_edge->endnode()));
-      LOG_INFO("Node named intersection: " + std::to_string(end_node->named_intersection()));
-      LOG_INFO("Options: ");
+      // LOG_INFO("End node: " + std::to_string(last_edge->endnode()) + " (" + std::to_string(last_edge->endnode().value) + ")");
+      // LOG_INFO("Node named intersection: " + std::to_string(end_node->named_intersection()));
+      // LOG_INFO("Options: ");
       int edge_idx = 0;
-      for (auto edge : tile->GetDirectedEdges(end_node)) {
-        std::cout << "Edge: " << edge_idx << " (local: " << edge.localedgeidx() << ")" << std::endl;
-        if (edge.localedgeidx() == last_edge->opp_local_idx()) {
-          std::cout << "  Opposite" << std::endl;
-        }
-        // std::cout << "  Use: " << edge.use() << std::endl;
-        // std::cout << "  Classification: " << edge.classification() << std::endl;
-        std::cout << "  Length: " << edge.length() << std::endl;
-        std::cout << "  Speed: " << edge.speed() << std::endl;
-        std::cout << "  End node: " << edge.endnode() << std::endl;
-        std::cout << "  Link: " << edge.link() << std::endl;
-        std::cout << "  Internal: " << edge.internal() << std::endl;
-        std::cout << "  Forward: " << edge.forwardaccess() << std::endl;
-        std::cout << "  Shortcut: " << edge.shortcut() << std::endl;
-        std::cout << "  Leaves tile: " << edge.leaves_tile() << std::endl;
-        std::cout << "  Superseded: " << edge.superseded() << std::endl;
-        std::cout << "  Sign: " << edge.sign() << std::endl;
-        std::cout << "  Turn type: " << Turn::GetTypeString(edge.turntype(last_edge->opp_local_idx())) << std::endl;
-        std::cout << "  Name consistency: " << edge.name_consistency(last_edge->localedgeidx()) << std::endl;
-        auto next_edge_graph_id = GraphId(tile->id().tileid(), tile->id().level(), end_node->edge_index() + edge_idx);
+      // for (auto edge : tile->GetDirectedEdges(end_node)) {
+      //   std::cout << "Edge: " << edge_idx << " (local: " << edge.localedgeidx() << ")" << std::endl;
+      //   if (edge.localedgeidx() == last_edge->opp_local_idx()) {
+      //     std::cout << "  Opposite" << std::endl;
+      //   }
+      //   // std::cout << "  Use: " << edge.use() << std::endl;
+      //   // std::cout << "  Classification: " << edge.classification() << std::endl;
+      //   std::cout << "  Length: " << edge.length() << std::endl;
+      //   std::cout << "  Speed: " << edge.speed() << std::endl;
+      //   std::cout << "  End node: " << edge.endnode() << " (" << edge.endnode().value << ")" << std::endl;
+      //   std::cout << "  Link: " << edge.link() << std::endl;
+      //   std::cout << "  Internal: " << edge.internal() << std::endl;
+      //   std::cout << "  Forward: " << edge.forwardaccess() << std::endl;
+      //   std::cout << "  Shortcut: " << edge.shortcut() << std::endl;
+      //   std::cout << "  Leaves tile: " << edge.leaves_tile() << std::endl;
+      //   std::cout << "  Superseded: " << edge.superseded() << std::endl;
+      //   std::cout << "  Sign: " << edge.sign() << std::endl;
+      //   std::cout << "  Turn type: " << Turn::GetTypeString(edge.turntype(last_edge->opp_local_idx())) << std::endl;
+      //   std::cout << "  Name consistency: " << edge.name_consistency(last_edge->localedgeidx()) << std::endl;
+      //   auto next_edge_graph_id = GraphId(tile->id().tileid(), tile->id().level(), end_node->edge_index() + edge_idx);
 
-        auto shortcut_id = tile->header()->graphid();
-        shortcut_id.set_id(&edge - tile->directededge(0));
-        auto edge_for_graph_id = tile->directededge(next_edge_graph_id);
-        std::cout << "  GraphId: " << next_edge_graph_id << std::endl;
-        std::cout << "  ShortcutId: " << shortcut_id << std::endl;
-        if (edge_for_graph_id->endnode() != edge.endnode() || edge_for_graph_id->length() != edge.length()) {
-          LOG_ERROR("Incorrect graph id!");
-        }
-        edge_idx++;
-      }
-      LOG_INFO("Make a decision");
+      //   auto shortcut_id = tile->header()->graphid();
+      //   shortcut_id.set_id(&edge - tile->directededge(0));
+      //   auto edge_for_graph_id = tile->directededge(next_edge_graph_id);
+      //   std::cout << "  GraphId: " << next_edge_graph_id << " (" << next_edge_graph_id.value << ")" << std::endl;
+      //   std::cout << "  Overall edge index: " << end_node->edge_index() + edge_idx << std::endl;
+      //   std::cout << "  ShortcutId: " << shortcut_id << std::endl;
+      //   if (edge_for_graph_id->endnode() != edge.endnode() || edge_for_graph_id->length() != edge.length()) {
+      //     LOG_ERROR("Incorrect graph id!");
+      //   }
+      //   edge_idx++;
+      // }
+      // LOG_INFO("Make a decision");
       const NodeInfo* next_end_node = nullptr;
       const DirectedEdge* next_last_edge = nullptr;
       Turn::Type next_turn_type = kTurnTypePriority.back();
@@ -258,23 +259,23 @@ thor_worker_t::map_match(Api& request) {
       for (auto edge : tile->GetDirectedEdges(end_node)) {
         next_edge_graph_id = GraphId(tile->id().tileid(), tile->id().level(), end_node->edge_index() + edge_idx);
         edge_idx++;
-        std::cout << "GraphId: " << next_edge_graph_id;
+        // std::cout << "GraphId: " << next_edge_graph_id;
         if (last_edge->opp_local_idx() == edge.localedgeidx()) {
-          std::cout << " (opposite)" << std::endl;
+          // std::cout << " (opposite)" << std::endl;
           continue;
         }
         if (edge.shortcut() != 0) {
-          std::cout << " (shortcut)" << std::endl;
+          // std::cout << " (shortcut)" << std::endl;
           continue;
         }
         Turn::Type this_turn_type = edge.turntype(last_edge->opp_local_idx());
         auto this_turn_type_priority = std::find(kTurnTypePriority.begin(), kTurnTypePriority.end(), this_turn_type);
         auto next_turn_type_priority = std::find(kTurnTypePriority.begin(), kTurnTypePriority.end(), next_turn_type);
         if (this_turn_type_priority > next_turn_type_priority) {
-          std::cout << " (skipping)" << std::endl;
+          // std::cout << " (skipping)" << std::endl;
           continue;
         }
-        std::cout << " (next)" << std::endl;
+        // std::cout << " (next)" << std::endl;
         next_end_node = reader->GetEndNode(&edge, tile);
         next_last_edge = tile->directededge(next_edge_graph_id);
         next_turn_type = this_turn_type;

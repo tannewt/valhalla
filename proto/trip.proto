@@ -229,6 +229,7 @@ message TripLeg {
     uint32 lane_count = 9;
     TripSign sign = 10;
     repeated StreetName name = 21;           // street names
+    uint64 id = 11;
   }
 
   message Cost {

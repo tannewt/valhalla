@@ -851,6 +851,10 @@ void AddTripIntersectingEdge(const AttributesController& controller,
     intersecting_edge->set_curr_name_consistency(directededge->name_consistency(local_edge_index));
   }
 
+  size_t edge_idx = intersecting_de - graphtile->directededge(0);
+  GraphId edge_graphid = GraphId(graphtile->id().tileid(), graphtile->id().level(), edge_idx);
+  intersecting_edge->set_id(edge_graphid.value);
+
   // Add names to edge if requested
   if (controller.attributes.at(kEdgeNames)) {
 
@@ -897,7 +901,6 @@ void AddTripIntersectingEdge(const AttributesController& controller,
 
   // Set the sign info for the intersecting edge if requested
   if (controller(kNodeIntersectingEdgeSignInfo)) {
-    LOG_ERROR("Sign info requested");
     if (intersecting_de->sign()) {
       LinguisticMap linguistics;
       std::vector<SignInfo> edge_signs =
@@ -907,7 +910,6 @@ void AddTripIntersectingEdge(const AttributesController& controller,
         AddSignInfo(controller, edge_signs, linguistics, sign);
       }
     }
-    LOG_ERROR("Sign info added");
   }
 }
 
@@ -1138,9 +1140,7 @@ TripLeg_Edge* AddTripEdge(const AttributesController& controller,
     std::vector<SignInfo> edge_signs = graphtile->GetSigns(idx, linguistics);
     if (!edge_signs.empty()) {
       valhalla::TripSign* sign = trip_edge->mutable_sign();
-      LOG_ERROR("Adding edge sign info");
       AddSignInfo(controller, edge_signs, linguistics, sign);
-      LOG_ERROR("Added edge sign info");
     }
   }
 
@@ -1153,7 +1153,6 @@ TripLeg_Edge* AddTripEdge(const AttributesController& controller,
       valhalla::TripSign* trip_sign = trip_edge->mutable_sign();
       uint32_t sign_index = 0;
       for (const auto& sign : node_signs) {
-        LOG_INFO("Sign: " + sign.text());
         switch (sign.type()) {
           case valhalla::baldr::Sign::Type::kJunctionName: {
             if (controller.attributes.at(kEdgeSignJunctionName)) {
@@ -1864,10 +1863,6 @@ void TripLegBuilder::Build(
 
     // Add a node to the trip path and set its attributes.
     TripLeg_Node* trip_node = trip_path.add_node();
-
-    if (node->named_intersection()) {
-      LOG_INFO("Named intersection");
-    }
 
     if (controller(kNodeType)) {
       trip_node->set_type(GetTripLegNodeType(node->type()));
