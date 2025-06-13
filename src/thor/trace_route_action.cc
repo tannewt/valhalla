@@ -212,6 +212,7 @@ thor_worker_t::map_match(Api& request) {
     std::cout << "Tile: " << tile->id() << std::endl;
     auto* last_edge = tile->directededge(last_segment.edgeid);
     auto end_node = tile->node(last_edge->endnode());
+    int last_match_idx = last_segment.last_match_idx;
     // 20 normally
     for (int i = 0; i < 20; ++i) {
       // LOG_INFO("End node: " + std::to_string(last_edge->endnode()) + " (" + std::to_string(last_edge->endnode().value) + ")");
@@ -288,7 +289,7 @@ thor_worker_t::map_match(Api& request) {
       }
       end_node = next_end_node;
       last_edge = next_last_edge;
-      result.segments.emplace_back(next_edge_graph_id, 0, 1, last_segment.last_match_idx - 1, last_segment.last_match_idx, false, 0);
+      result.segments.emplace_back(next_edge_graph_id, 0, 1, last_match_idx - 1, last_match_idx, false, 0);
     }
     result.results[last_segment.last_match_idx].is_break_point = false;
 
