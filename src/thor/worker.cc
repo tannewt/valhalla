@@ -287,6 +287,7 @@ void thor_worker_t::parse_measurements(const Api& request) {
   // we require locations
   try {
     const auto& config = matcher->config();
+    trace.clear();
     for (const auto& pt : options.shape()) {
       trace.emplace_back(
           meili::Measurement{{pt.ll().lng(), pt.ll().lat()},
