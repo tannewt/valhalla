@@ -1,4 +1,7 @@
 #include "baldr/attributes_controller.h"
+#include "baldr/directededge.h"
+#include "baldr/graphconstants.h"
+#include "baldr/graphid.h"
 #include "baldr/nodeinfo.h"
 #include "meili/map_matcher.h"
 #include "meili/match_result.h"
@@ -191,6 +194,15 @@ thor_worker_t::map_match(Api& request) {
     return {};
   }
 
+  uint16_t required_access;
+  if (options.costing_type() == Costing::auto_) {
+    required_access = kVehicularAccess;
+  } else if (options.costing_type() == Costing::bicycle) {
+    required_access = kBicycleAccess;
+  } else if (options.costing_type() == Costing::pedestrian) {
+    required_access = kPedestrianAccess;
+  }
+
   // we don't allow multi path for trace route at the moment, discontinuities force multi route
   int topk = request.options().action() == Options::trace_attributes
                  ? request.options().alternates() + 1
@@ -209,7 +221,7 @@ thor_worker_t::map_match(Api& request) {
     LOG_INFO("Extending segments");
     auto& last_segment = result.segments.back();
     auto tile = reader->GetGraphTile(last_segment.edgeid);
-    std::cout << "Tile: " << tile->id() << std::endl;
+    // std::cout << "Tile: " << tile->id() << std::endl;
     auto* last_edge = tile->directededge(last_segment.edgeid);
     auto end_node = tile->node(last_edge->endnode());
     int last_match_idx = last_segment.last_match_idx;
@@ -218,7 +230,7 @@ thor_worker_t::map_match(Api& request) {
       // LOG_INFO("End node: " + std::to_string(last_edge->endnode()) + " (" + std::to_string(last_edge->endnode().value) + ")");
       // LOG_INFO("Node named intersection: " + std::to_string(end_node->named_intersection()));
       // LOG_INFO("Options: ");
-      int edge_idx = 0;
+      // int edge_idx = 0;
       // for (auto edge : tile->GetDirectedEdges(end_node)) {
       //   std::cout << "Edge: " << edge_idx << " (local: " << edge.localedgeidx() << ")" << std::endl;
       //   if (edge.localedgeidx() == last_edge->opp_local_idx()) {
@@ -231,10 +243,49 @@ thor_worker_t::map_match(Api& request) {
       //   std::cout << "  End node: " << edge.endnode() << " (" << edge.endnode().value << ")" << std::endl;
       //   std::cout << "  Link: " << edge.link() << std::endl;
       //   std::cout << "  Internal: " << edge.internal() << std::endl;
-      //   std::cout << "  Forward: " << edge.forwardaccess() << std::endl;
+      //   std::cout << "  Forward: ";
+      //   if (edge.forwardaccess() == 0) {
+      //     std::cout << "None" << std::endl;
+      //   } else {
+      //     if (edge.forwardaccess() & kAutoAccess) {
+      //       std::cout << "Auto ";
+      //     }
+      //     if (edge.forwardaccess() & kPedestrianAccess) {
+      //       std::cout << "Pedestrian ";
+      //     }
+      //     if (edge.forwardaccess() & kBicycleAccess) {
+      //       std::cout << "Bicycle ";
+      //     }
+      //     if (edge.forwardaccess() & kTruckAccess) {
+      //       std::cout << "Truck ";
+      //     }
+      //     if (edge.forwardaccess() & kEmergencyAccess) {
+      //       std::cout << "Emergency ";
+      //     }
+      //     if (edge.forwardaccess() & kTaxiAccess) {
+      //       std::cout << "Taxi ";
+      //     }
+      //     if (edge.forwardaccess() & kBusAccess) {
+      //       std::cout << "Bus ";
+      //     }
+      //     if (edge.forwardaccess() & kHOVAccess) {
+      //       std::cout << "HOV ";
+      //     }
+      //     if (edge.forwardaccess() & kWheelchairAccess) {
+      //       std::cout << "Wheelchair ";
+      //     }
+      //     if (edge.forwardaccess() & kMopedAccess) {
+      //       std::cout << "Moped ";
+      //     }
+      //     if (edge.forwardaccess() & kMotorcycleAccess) {
+      //       std::cout << "Motorcycle ";
+      //     }
+      //     std::cout << std::endl;
+      //   }
       //   std::cout << "  Shortcut: " << edge.shortcut() << std::endl;
       //   std::cout << "  Leaves tile: " << edge.leaves_tile() << std::endl;
       //   std::cout << "  Superseded: " << edge.superseded() << std::endl;
+      //   std::cout << "  Roundabout: " << edge.roundabout() << std::endl;
       //   std::cout << "  Sign: " << edge.sign() << std::endl;
       //   std::cout << "  Turn type: " << Turn::GetTypeString(edge.turntype(last_edge->opp_local_idx())) << std::endl;
       //   std::cout << "  Name consistency: " << edge.name_consistency(last_edge->localedgeidx()) << std::endl;
@@ -251,16 +302,15 @@ thor_worker_t::map_match(Api& request) {
       //   }
       //   edge_idx++;
       // }
-      // LOG_INFO("Make a decision");
       const NodeInfo* next_end_node = nullptr;
       const DirectedEdge* next_last_edge = nullptr;
       Turn::Type next_turn_type = kTurnTypePriority.back();
       GraphId next_edge_graph_id;
-      edge_idx = 0;
+      int edge_idx = 0;
       for (auto edge : tile->GetDirectedEdges(end_node)) {
-        next_edge_graph_id = GraphId(tile->id().tileid(), tile->id().level(), end_node->edge_index() + edge_idx);
+        GraphId graph_id = GraphId(tile->id().tileid(), tile->id().level(), end_node->edge_index() + edge_idx);
         edge_idx++;
-        // std::cout << "GraphId: " << next_edge_graph_id;
+        // std::cout << "GraphId: " << graph_id;
         if (last_edge->opp_local_idx() == edge.localedgeidx()) {
           // std::cout << " (opposite)" << std::endl;
           continue;
@@ -276,16 +326,134 @@ thor_worker_t::map_match(Api& request) {
           // std::cout << " (skipping)" << std::endl;
           continue;
         }
+        if ((edge.forwardaccess() & required_access) == 0) {
+          // std::cout << " (not accessible)" << std::endl;
+          continue;
+        }
         // std::cout << " (next)" << std::endl;
         next_end_node = reader->GetEndNode(&edge, tile);
+        next_edge_graph_id = graph_id;
         next_last_edge = tile->directededge(next_edge_graph_id);
         next_turn_type = this_turn_type;
         if (next_turn_type == Turn::Type::kStraight) {
           break;
         }
       }
+      // std::cout << "Next end node: " << next_end_node << std::endl;
+      
       if (!next_end_node || !next_last_edge) {
         break;
+      }
+      if (!last_edge->roundabout() && next_last_edge->roundabout()) {
+        // std::cout << "Roundabout detected" << std::endl;
+        int incoming_heading = (end_node->heading(last_edge->opp_local_idx()) + 180) % 360;
+        // std::cout << "Incoming heading: " << incoming_heading << std::endl;
+        auto incoming_edgeinfo = tile->edgeinfo(last_edge);
+        auto incoming_names_and_types = incoming_edgeinfo.GetNamesAndTypes(true);
+        // for (const auto& name_and_type : incoming_names_and_types) {
+        //   std::cout << "Incoming name: " << std::get<0>(name_and_type) << std::endl;
+        //   std::cout << "Incoming type: " << std::get<1>(name_and_type) << std::endl;
+        // }
+        // std::cout << "Outgoing heading: " << next_last_edge->heading() << std::endl;
+        const DirectedEdge* roundabout_edge = next_last_edge;
+        const NodeInfo* roundabout_node = reader->GetEndNode(next_last_edge, tile);
+        const NodeInfo* start_node = roundabout_node;
+        int j = 0;
+        // First, go around the roundabout looking for an edge with the same name. Also keep track of the edge with the closest heading to the incoming edge.
+        const DirectedEdge* closest_edge = nullptr;
+        int closest_heading_diff = 360;
+        const DirectedEdge* same_name_edge = nullptr;
+        while ((roundabout_node != start_node || j == 0) && j < 5) {
+          const auto& edges = tile->GetDirectedEdges(roundabout_node);
+          const DirectedEdge* next_roundabout_edge = nullptr;
+          int edge_idx = 0;
+          for (const auto& edge : edges) {
+            GraphId graph_id = GraphId(tile->id().tileid(), tile->id().level(), roundabout_node->edge_index() + edge_idx);
+            edge_idx++;
+            // std::cout << "  Edge: " << graph_id << std::endl;
+            if (edge.localedgeidx() == roundabout_edge->opp_local_idx()) {
+              // std::cout << "  Opposite edge" << std::endl << std::endl;
+              continue;
+            }
+
+            if (same_name_edge == nullptr) {
+              auto edgeinfo = tile->edgeinfo(&edge);
+              auto names_and_types = edgeinfo.GetNamesAndTypes(true);
+              for (const auto& name_and_type : names_and_types) {
+                // std::cout << "  Name: " << std::get<0>(name_and_type) << std::endl;
+                // std::cout << "  Type: " << std::get<1>(name_and_type) << std::endl;
+                for (const auto& incoming_name_and_type : incoming_names_and_types) {
+                  if (std::get<0>(incoming_name_and_type) == std::get<0>(name_and_type)) {
+                    same_name_edge = &edge;
+                    // std::cout << "  Same name edge" << std::endl;
+                    break;
+                  }
+                }
+              }
+            }
+            int heading = roundabout_node->heading(edge.localedgeidx());
+            // std::cout << "  Heading: " << heading << std::endl;
+            int heading_diff = std::abs(heading - incoming_heading);
+            if (heading_diff < closest_heading_diff) {
+              closest_heading_diff = heading_diff;
+              closest_edge = &edge;
+            }
+            // std::cout << "  Turn type: " << Turn::GetTypeString(edge.turntype(roundabout_edge->opp_local_idx())) << std::endl;
+            if (edge.roundabout()) {
+              // std::cout << "  Roundabout edge: " << &edge << std::endl;
+              next_roundabout_edge = &edge;
+            }
+            // std::cout << std::endl;
+          }
+          roundabout_edge = next_roundabout_edge;
+          roundabout_node = reader->GetEndNode(roundabout_edge, tile);
+          // std::cout << "Roundabout edge: " << roundabout_edge << std::endl;
+          // std::cout << "Roundabout node: " << roundabout_node << std::endl << std::endl;
+          j++;
+        }
+        // Go around the roundabout a second time to add the roundabout segments to the result
+        roundabout_edge = next_last_edge;
+        roundabout_node = reader->GetEndNode(next_last_edge, tile);
+        const DirectedEdge* exit_edge = nullptr;
+        if (same_name_edge != nullptr) {
+          exit_edge = same_name_edge;
+        } else {
+          exit_edge = closest_edge;
+        }
+        result.segments.emplace_back(next_edge_graph_id, 0, 1, last_match_idx - 1, last_match_idx, false, 0);
+        while (roundabout_edge != exit_edge) {
+          const auto& edges = tile->GetDirectedEdges(roundabout_node);
+          const DirectedEdge* next_roundabout_edge = nullptr;
+          GraphId next_roundabout_graph_id;
+          int edge_idx = 0;
+          for (const auto& edge : edges) {
+            GraphId graph_id = GraphId(tile->id().tileid(), tile->id().level(), roundabout_node->edge_index() + edge_idx);
+            
+            edge_idx++;
+            if (edge.localedgeidx() == roundabout_edge->opp_local_idx()) {
+              continue;
+            }
+            if (edge.roundabout()) {
+              next_roundabout_graph_id = graph_id;
+              next_roundabout_edge = &edge;
+            }
+            if (&edge == exit_edge) {
+              next_roundabout_graph_id = graph_id;
+              next_roundabout_edge = &edge;
+              break;
+            }
+          }
+          roundabout_edge = next_roundabout_edge;
+          roundabout_node = reader->GetEndNode(roundabout_edge, tile);
+          if (roundabout_edge == exit_edge) {
+            next_edge_graph_id = next_roundabout_graph_id;
+            break;
+          }
+          // std::cout << "Roundabout edge: " << next_roundabout_graph_id << std::endl;
+          result.segments.emplace_back(next_roundabout_graph_id, 0, 1, last_match_idx - 1, last_match_idx, false, 0);
+        }
+        next_last_edge = exit_edge;
+        next_end_node = roundabout_node;
       }
       end_node = next_end_node;
       last_edge = next_last_edge;
