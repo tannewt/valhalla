@@ -585,7 +585,6 @@ void AddSignInfo(const AttributesController& controller,
   if (!edge_signs.empty()) {
     uint32_t sign_index = 0;
     for (const auto& sign : edge_signs) {
-      LOG_INFO("Sign[" + std::to_string(sign_index) + "]: " + sign.text());
       switch (sign.type()) {
         case valhalla::baldr::Sign::Type::kExitNumber: {
           if (controller.attributes.at(kEdgeSignExitNumber)) {
