@@ -112,6 +112,7 @@ std::string thor_worker_t::matrix(Api& request) {
   }
 
   auto* algo = get_matrix_algorithm(request, has_time, costing);
+  algo->Clear();
   if (check_hierarchy_limits(mode_costing[int(mode)]->GetHierarchyLimits(), mode_costing[int(mode)],
                              options.costings().find(options.costing_type())->second.options(),
                              hierarchy_limits_config_costmatrix, allow_hierarchy_limits_modifications,
