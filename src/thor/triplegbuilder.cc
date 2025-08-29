@@ -1077,7 +1077,6 @@ TripLeg_Edge* AddTripEdge(const AttributesController& controller,
                           bool blind_instructions,
                           EdgeInfo& edgeinfo,
                           const std::pair<std::vector<std::pair<float, float>>, uint32_t>& levels) {
-
   // Index of the directed edge within the tile
   uint32_t idx = edge.id();
   TripLeg_Edge* trip_edge = trip_node->mutable_edge();
@@ -1268,8 +1267,13 @@ TripLeg_Edge* AddTripEdge(const AttributesController& controller,
   if (directededge->access_restriction() && edge_itr->restriction_index != kInvalidRestriction) {
     const std::vector<baldr::AccessRestriction>& restrictions =
         graphtile->GetAccessRestrictions(edge.id(), costing->access_mode());
-    trip_edge->mutable_restriction()->set_type(
-        static_cast<uint32_t>(restrictions[edge_itr->restriction_index].type()));
+
+        if (edge_itr->restriction_index < restrictions.size()) {
+            trip_edge->mutable_restriction()->set_type(
+                static_cast<uint32_t>(restrictions[edge_itr->restriction_index].type()));
+        } else {
+            LOG_ERROR("Invalid restriction index " + std::to_string(edge_itr->restriction_index) + " for edge " + std::to_string(edge));
+        }
   }
 
   trip_edge->set_has_time_restrictions(edge_itr->restriction_index != kInvalidRestriction);
