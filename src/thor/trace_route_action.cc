@@ -47,6 +47,7 @@ void add_path_edge(valhalla::Location* l,
                    float percent_along,
                    const midgard::PointLL& ll,
                    float distance) {
+  assert(l != nullptr);
   l->mutable_correlation()->mutable_edges()->Clear();
   auto* edge = l->mutable_correlation()->mutable_edges()->Add();
   edge->set_graph_id(edge_id);
@@ -340,7 +341,7 @@ thor_worker_t::map_match(Api& request) {
         }
       }
       // std::cout << "Next end node: " << next_end_node << std::endl;
-      
+
       if (!next_end_node || !next_last_edge) {
         break;
       }
@@ -428,7 +429,7 @@ thor_worker_t::map_match(Api& request) {
           int edge_idx = 0;
           for (const auto& edge : edges) {
             GraphId graph_id = GraphId(tile->id().tileid(), tile->id().level(), roundabout_node->edge_index() + edge_idx);
-            
+
             edge_idx++;
             if (edge.localedgeidx() == roundabout_edge->opp_local_idx()) {
               continue;
@@ -587,7 +588,15 @@ void thor_worker_t::build_trace(
   const meili::MatchResult& dest_match = match_results[dest_segment->last_match_idx];
   Location* origin_location = options.mutable_shape(&origin_match - &match_results.front());
   Location* destination_location = options.mutable_shape(&dest_match - &match_results.front());
-
+  if (origin_location == nullptr || destination_location == nullptr) {
+    if (origin_location == nullptr) {
+      LOG_ERROR("origin_location is nullptr");
+    }
+    if (destination_location == nullptr) {
+      LOG_ERROR("destination_location is nullptr");
+    }
+    throw valhalla_exception_t{442};
+  }
   // we fake up something that looks like the output of loki. segment edge id and matchresult edge ids
   // can disagree at node snaps but leg building requires that we refer to edges in the path. because
   // of that, we use the segment to get edge and percent but we use matchresult for the snap location
